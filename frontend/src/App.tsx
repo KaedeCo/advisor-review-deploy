@@ -10,7 +10,7 @@ import KpiSidebar from './components/KpiSidebar'
 
 export default function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter basename="/advisor" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div style={{ minHeight: '100vh', background: 'transparent' }}>
         {/* 顶部导航 — 玻璃拟态 */}
         <header style={{
