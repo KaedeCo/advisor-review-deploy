@@ -23,10 +23,11 @@ _crawler_cache: dict = {}
 _tavily_engine: Optional[TavilySearchEngine] = None
 
 
-def _get_gradchoice_scraper() -> GradChoiceScraper:
-    if "gradchoice" not in _crawler_cache:
-        _crawler_cache["gradchoice"] = GradChoiceScraper()
-    return _crawler_cache["gradchoice"]
+def _get_gradchoice_scraper(access_token: str = "") -> GradChoiceScraper:
+    cache_key = f"gradchoice_{hash(access_token)}"
+    if cache_key not in _crawler_cache:
+        _crawler_cache[cache_key] = GradChoiceScraper(access_token=access_token)
+    return _crawler_cache[cache_key]
 
 
 def _get_letpub_scraper():
@@ -99,22 +100,22 @@ def _format_github_results(db_rows: list[dict]) -> list[dict]:
     return results
 
 
-def _get_tavily_engine() -> TavilySearchEngine:
+def _get_tavily_engine(api_key: str = "") -> TavilySearchEngine:
     global _tavily_engine
-    if _tavily_engine is None:
-        _tavily_engine = TavilySearchEngine()
+    if _tavily_engine is None or _tavily_engine._api_key != api_key:
+        _tavily_engine = TavilySearchEngine(api_key=api_key)
     return _tavily_engine
 
 
 def _run_crawlers_sync(advisor_name: str, university: str, target_platforms: list[dict],
-                       department: str = "") -> tuple[list[dict], list[str]]:
+                       department: str = "", gradchoice_token: str = "") -> tuple[list[dict], list[str]]:
     all_results = []
     platforms_used = []
 
     for platform in target_platforms:
         try:
             if platform["key"] == "gradchoice":
-                scraper = _get_gradchoice_scraper()
+                scraper = _get_gradchoice_scraper(access_token=gradchoice_token)
                 results = scraper.search(advisor_name, university)
                 if results:
                     all_results.extend(results)
@@ -238,7 +239,8 @@ def _run_crawlers_sync(advisor_name: str, university: str, target_platforms: lis
     return all_results, platforms_used
 
 
-async def _run_tavily_search(advisor_name: str, university: str, target_platforms: list[dict]) -> tuple[list[dict], bool]:
+async def _run_tavily_search(advisor_name: str, university: str, target_platforms: list[dict],
+                              tavily_key: str = "") -> tuple[list[dict], bool]:
     """仅在 tavily 平台启用时执行"""
     # 检查平台开关
     tavily_enabled = any(p.get("key") == "tavily" for p in target_platforms)
@@ -246,7 +248,7 @@ async def _run_tavily_search(advisor_name: str, university: str, target_platform
         return [], False
 
     try:
-        engine = _get_tavily_engine()
+        engine = _get_tavily_engine(api_key=tavily_key)
         if not engine.available:
             logger.info("Tavily 不可用，跳过搜索引擎")
             return [], False
@@ -303,11 +305,12 @@ async def search_advisor(req: SearchRequest):
                      [p["key"] for p in target_platforms])
 
     # ── 并行执行：直连爬虫(线程) + Tavily 搜索引擎 + LetPub(async) ──
+    gradchoice_token = req.cookies.get("gradchoice", "") if req.cookies else ""
     crawler_task = asyncio.to_thread(
         _run_crawlers_sync, req.advisor_name, req.university or "", target_platforms,
-        req.department or "",
+        req.department or "", gradchoice_token,
     )
-    tavily_task = _run_tavily_search(req.advisor_name, req.university or "", target_platforms)
+    tavily_task = _run_tavily_search(req.advisor_name, req.university or "", target_platforms, tavily_key=req.tavily_key)
     letpub_task = _run_letpub_async(req.advisor_name, req.university or "", target_platforms)
 
     (crawler_results, platforms_used), (tavily_results, tavily_used), (letpub_results, letpub_used) = \

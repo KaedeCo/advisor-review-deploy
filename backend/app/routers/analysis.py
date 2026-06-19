@@ -65,7 +65,7 @@ async def deepseek_sentiment_analysis(req: SentimentAnalysisRequest):
 
     start_time = time.time()
     try:
-        result = await deepseek_sentiment(req.reviews_text)
+        result = await deepseek_sentiment(req.reviews_text, api_key=req.deepseek_key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -108,7 +108,7 @@ async def deepseek_analysis(
         raise HTTPException(status_code=400, detail="评论文本不能为空")
 
     start_time = time.time()
-    result = await deepseek_analyze(req.reviews_text)
+    result = await deepseek_analyze(req.reviews_text, api_key=req.deepseek_key)
     elapsed = round(time.time() - start_time, 2)
     print(f"[DeepSeek] 分析完成，耗时 {elapsed}s")
 
@@ -179,6 +179,7 @@ async def analyze_dimensions(req: SixDimensionRequest):
         scores, red_flags_summary = await score_six_dimensions(
             req.reviews_text,
             review_count=req.review_count,
+            api_key=req.deepseek_key,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -230,7 +231,7 @@ async def advisor_profile(req: AdvisorProfileRequest):
 
     start_time = time.time()
     try:
-        profile = await generate_advisor_profile(req)
+        profile = await generate_advisor_profile(req, api_key=req.deepseek_key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

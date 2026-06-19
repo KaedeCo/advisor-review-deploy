@@ -1,8 +1,66 @@
 /**
- * API 客户端 — 封装所有后端接口调用
+ * API 客户端 — 封装所有后端接口调用（部署版：API Key/Cookie 由前端 localStorage 管理）
  */
 
-const BASE = '/api'
+const BASE = '/advisor/api'
+
+// ═══════════════════════════════════════════════════════════
+//  localStorage 配置读写（部署版：不向服务端保存任何敏感数据）
+// ═══════════════════════════════════════════════════════════
+
+const STORAGE_KEYS = {
+  deepseek: 'advisor_deepseek_key',
+  tavily: 'advisor_tavily_key',
+  gradchoice: 'advisor_gradchoice_token',
+  letpub: 'advisor_letpub_cookie',
+  platforms: 'advisor_platforms',
+}
+
+export function getLocalDeepseekKey(): string {
+  return localStorage.getItem(STORAGE_KEYS.deepseek) || ''
+}
+
+export function setLocalDeepseekKey(key: string) {
+  localStorage.setItem(STORAGE_KEYS.deepseek, key)
+}
+
+export function getLocalTavilyKey(): string {
+  return localStorage.getItem(STORAGE_KEYS.tavily) || ''
+}
+
+export function setLocalTavilyKey(key: string) {
+  localStorage.setItem(STORAGE_KEYS.tavily, key)
+}
+
+export function getLocalCookie(platform: string): string {
+  const map: Record<string, string> = { gradchoice: STORAGE_KEYS.gradchoice, letpub: STORAGE_KEYS.letpub }
+  return localStorage.getItem(map[platform] || '') || ''
+}
+
+export function setLocalCookie(platform: string, value: string) {
+  const map: Record<string, string> = { gradchoice: STORAGE_KEYS.gradchoice, letpub: STORAGE_KEYS.letpub }
+  if (map[platform]) localStorage.setItem(map[platform], value)
+}
+
+export function getLocalCookies(): Record<string, string> {
+  return {
+    gradchoice: getLocalCookie('gradchoice'),
+    letpub: getLocalCookie('letpub'),
+  }
+}
+
+// Platforms toggle stored in localStorage
+export function getLocalPlatforms(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.platforms) || '{}')
+  } catch { return {} }
+}
+
+export function setLocalPlatformEnabled(key: string, enabled: boolean) {
+  const p = getLocalPlatforms()
+  p[key] = enabled
+  localStorage.setItem(STORAGE_KEYS.platforms, JSON.stringify(p))
+}
 
 // ===== 类型定义 =====
 
@@ -81,10 +139,15 @@ export async function searchAdvisor(params: {
   department?: string
   platforms?: string[]
 }): Promise<SearchResponse> {
+  const body: any = { ...params }
+  // Attach keys from localStorage
+  body.deepseek_key = getLocalDeepseekKey()
+  body.tavily_key = getLocalTavilyKey()
+  body.cookies = getLocalCookies()
   const res = await fetch(`${BASE}/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
@@ -124,6 +187,7 @@ export async function analyzeSentimentDeepseek(
       university: advisor?.university || '',
       department: advisor?.department || '',
       review_count: advisor?.reviewCount || 0,
+      deepseek_key: getLocalDeepseekKey(),
     }),
   })
   if (!res.ok) throw new Error(await res.text())
@@ -143,81 +207,30 @@ export async function analyzeDeepseek(
   const res = await fetch(`${BASE}/analyze/deepseek?${params.toString()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reviews_text: reviewsText }),
+    body: JSON.stringify({ reviews_text: reviewsText, deepseek_key: getLocalDeepseekKey() }),
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
 
 export interface SettingsData {
-  deepseek_configured: boolean
-  gradchoice_cookie_set: boolean
-  letpub_cookie_set: boolean
-  letpub_cookie_preview: string
-  gradchoice_token_preview: string
-  tavily_configured: boolean
-  tavily_available: boolean
-  tavily_detail: string
-  tavily_key_preview: string
   platforms: Platform[]
 }
 
-/** 获取设置状态 */
+/** 获取设置状态（仅返回平台列表，不含敏感信息） */
 export async function fetchSettings(): Promise<SettingsData> {
   const res = await fetch(`${BASE}/settings`)
   if (!res.ok) throw new Error('获取设置失败')
   return res.json()
 }
 
-/** 更新 DeepSeek API Key */
-export async function updateDeepseekKey(apiKey: string): Promise<{ status: string; message: string }> {
-  const res = await fetch(`${BASE}/settings/deepseek`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey }),
-  })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
-}
-
-/** 更新平台 Cookie */
-export async function updateCookie(platform: string, cookie: string): Promise<{ status: string; message: string }> {
-  const res = await fetch(`${BASE}/settings/cookie/${platform}?cookie=${encodeURIComponent(cookie)}`, {
-    method: 'POST',
-  })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
-}
-
-/** 切换平台开关 */
-export async function togglePlatform(platform: string, enabled: boolean): Promise<{ status: string; message: string }> {
-  const res = await fetch(`${BASE}/settings/platform`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ platform, enabled }),
-  })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
-}
-
-/** Tavily 连通检测 */
+/** Tavily 连通检测（使用前端传来的 key） */
 export interface TavilyCheckResult {
   available: boolean
   detail: string
 }
-export async function checkTavily(): Promise<TavilyCheckResult> {
-  const res = await fetch(`${BASE}/settings/check-tavily`, { method: 'POST' })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
-}
-
-/** 保存 Tavily API Key */
-export async function updateTavilyKey(apiKey: string): Promise<{ status: string; message: string }> {
-  const res = await fetch(`${BASE}/settings/tavily`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey }),
-  })
+export async function checkTavily(apiKey: string): Promise<TavilyCheckResult> {
+  const res = await fetch(`${BASE}/settings/check-tavily?tavily_key=${encodeURIComponent(apiKey)}`, { method: 'POST' })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -229,15 +242,15 @@ export interface TokenVerifyResult {
   detail: string
   url: string
 }
-export async function verifyToken(): Promise<TokenVerifyResult> {
-  const res = await fetch(`${BASE}/settings/verify-token`, { method: 'POST' })
+export async function verifyToken(token: string): Promise<TokenVerifyResult> {
+  const res = await fetch(`${BASE}/settings/verify-token?token=${encodeURIComponent(token)}`, { method: 'POST' })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
 
 /** 验证 LetPub PHPSESSID */
-export async function verifyLetpub(): Promise<{ valid: boolean; detail: string }> {
-  const res = await fetch(`${BASE}/settings/verify-letpub`, { method: 'POST' })
+export async function verifyLetpub(phpsessid: string): Promise<{ valid: boolean; detail: string }> {
+  const res = await fetch(`${BASE}/settings/verify-letpub?phpsessid=${encodeURIComponent(phpsessid)}`, { method: 'POST' })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -371,6 +384,7 @@ export async function analyzeDimensions(
       university: advisor?.university || '',
       department: advisor?.department || '',
       review_count: advisor?.reviewCount || 0,
+      deepseek_key: getLocalDeepseekKey(),
     }),
   })
   if (!res.ok) throw new Error(await res.text())
@@ -405,6 +419,7 @@ export async function generateProfile(
       advisor_name: advisor?.name || '',
       university: advisor?.university || '',
       department: advisor?.department || '',
+      deepseek_key: getLocalDeepseekKey(),
     }),
   })
   if (!res.ok) throw new Error(await res.text())

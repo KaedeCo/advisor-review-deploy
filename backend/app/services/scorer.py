@@ -227,6 +227,7 @@ def detect_red_flags_local(text: str) -> list[dict]:
 async def score_six_dimensions(
     reviews_text: str,
     review_count: int = 0,
+    api_key: str = "",
 ) -> tuple[DimensionScores, list[str]]:
     """
     六维并行评分入口
@@ -235,7 +236,8 @@ async def score_six_dimensions(
     - DimensionScores: 六个维度的评分 + 综合加权分
     - list[str]: 跨维度汇总的严重红旗信号
     """
-    api_key = get_deepseek_api_key()
+    if not api_key:
+        api_key = get_deepseek_api_key()
     if not api_key:
         raise ValueError("DeepSeek API Key 未配置，请先在设置页面添加")
 

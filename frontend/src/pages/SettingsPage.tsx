@@ -140,17 +140,16 @@ export default function SettingsPage() {
     try {
       const data = await api.fetchSettings()
       setSettings(data)
-      if (data.gradchoice_token_preview) {
-        setCookieFields(prev => ({ ...prev, access_token: data.gradchoice_token_preview }))
-        setRawCookie(data.gradchoice_token_preview)
-      }
-      if (data.letpub_cookie_preview) {
-        setLetpubCookie(data.letpub_cookie_preview)
-      }
-      if (data.tavily_key_preview) {
-        setTavilyKey(data.tavily_key_preview)
-      }
     } catch (e) { console.error(e) }
+    // Load saved keys from localStorage
+    const savedDs = api.getLocalDeepseekKey()
+    if (savedDs) setDsKey(savedDs)
+    const savedTavily = api.getLocalTavilyKey()
+    if (savedTavily) setTavilyKey(savedTavily)
+    const savedGc = api.getLocalCookie('gradchoice')
+    if (savedGc) { setCookieFields(prev => ({ ...prev, access_token: savedGc })); setRawCookie(savedGc) }
+    const savedLp = api.getLocalCookie('letpub')
+    if (savedLp) setLetpubCookie(savedLp)
   }
 
   function buildCookieString(): string {
@@ -194,21 +193,18 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleSaveDeepseek() {
+  function handleSaveDeepseek() {
     if (!dsKey.trim()) { showToast('Enter API Key', 'warning'); return }
     if (dsKey.trim().length < 10) { showToast('Invalid API Key', 'warning'); return }
-    setSaving(true)
-    try {
-      await api.updateDeepseekKey(dsKey.trim())
-      showToast('DeepSeek API Key saved'); loadSettings()
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error') }
-    finally { setSaving(false) }
+    api.setLocalDeepseekKey(dsKey.trim())
+    showToast('DeepSeek API Key 已保存到浏览器'); loadSettings()
   }
 
   async function handleVerifyToken() {
     setVerifying(true); setVerifyResult(null)
+    const token = extractRawJWT(buildCookieString())
     try {
-      const result = await api.verifyToken()
+      const result = await api.verifyToken(token)
       setVerifyResult(result)
       showToast(result.valid ? 'Token valid' : 'Verification failed', result.valid ? 'success' : 'error')
     } catch (e: any) {
@@ -217,56 +213,44 @@ export default function SettingsPage() {
     } finally { setVerifying(false) }
   }
 
-  async function handleSaveCookie() {
+  function handleSaveCookie() {
     const toSave = extractRawJWT(buildCookieString())
     if (!toSave && !rawMode) { showToast('Enter Access Token', 'warning'); return }
     if (toSave && !toSave.startsWith('eyJ')) { showToast('Token must start with eyJ', 'warning'); return }
-    setSaving(true)
-    try {
-      await api.updateCookie('gradchoice', toSave)
-      showToast('Access Token saved'); loadSettings()
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error') }
-    finally { setSaving(false) }
+    api.setLocalCookie('gradchoice', toSave)
+    showToast('Access Token 已保存到浏览器'); loadSettings()
   }
 
-  async function handleSaveTavilyKey() {
+  function handleSaveTavilyKey() {
     if (!tavilyKey.trim()) { showToast('Enter Tavily API Key', 'warning'); return }
-    setSaving(true)
-    try {
-      await api.updateTavilyKey(tavilyKey.trim())
-      showToast('Tavily API Key saved'); loadSettings()
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error') }
-    finally { setSaving(false) }
+    api.setLocalTavilyKey(tavilyKey.trim())
+    showToast('Tavily API Key 已保存到浏览器'); loadSettings()
   }
 
   async function handleCheckTavily() {
+    if (!tavilyKey.trim()) { showToast('Enter Tavily API Key first', 'warning'); return }
     setCheckingTavily(true); setTavilyResult(null)
     try {
-      const r = await api.checkTavily()
+      const r = await api.checkTavily(tavilyKey.trim())
       setTavilyResult(r)
       showToast(r.available ? 'Tavily reachable' : 'Tavily unreachable', r.available ? 'success' : 'warning')
-      loadSettings()
     } catch (e: any) {
       setTavilyResult({ available: false, detail: e.message || 'Request failed' })
       showToast('Tavily check failed', 'error')
     } finally { setCheckingTavily(false) }
   }
 
-  async function handleSaveLetpubCookie() {
+  function handleSaveLetpubCookie() {
     if (!letpubCookie.trim()) { showToast('Enter PHPSESSID', 'warning'); return }
-    setSaving(true)
-    try {
-      await api.updateCookie('letpub', letpubCookie.trim())
-      showToast('PHPSESSID saved'); loadSettings()
-    } catch (e: any) { showToast(e.message || 'Save failed', 'error') }
-    finally { setSaving(false) }
+    api.setLocalCookie('letpub', letpubCookie.trim())
+    showToast('PHPSESSID 已保存到浏览器'); loadSettings()
   }
 
   async function handleVerifyLetpub() {
     if (!letpubCookie.trim()) { showToast('Enter PHPSESSID first', 'warning'); return }
     setVerifyingLetpub(true); setLetpubVerifyResult(null)
     try {
-      const result = await api.verifyLetpub()
+      const result = await api.verifyLetpub(letpubCookie.trim())
       setLetpubVerifyResult(result)
       showToast(result.valid ? 'PHPSESSID valid' : 'Verification failed', result.valid ? 'success' : 'error')
     } catch (e: any) {
@@ -275,11 +259,9 @@ export default function SettingsPage() {
     } finally { setVerifyingLetpub(false) }
   }
 
-  async function handleTogglePlatform(platform: string, enabled: boolean) {
-    try {
-      await api.togglePlatform(platform, enabled)
-      showToast(`${platform} ${enabled ? 'on' : 'off'}`); loadSettings()
-    } catch (e: any) { showToast(e.message || 'Failed', 'error') }
+  function handleTogglePlatform(platform: string, enabled: boolean) {
+    api.setLocalPlatformEnabled(platform, enabled)
+    showToast(`${platform} ${enabled ? 'on' : 'off'}`); loadSettings()
   }
 
   function addCustomField() {
@@ -294,8 +276,10 @@ export default function SettingsPage() {
   }
 
   // ─── Tavily Status ────────────────────────────────────
-  const tavilyStatus = settings?.tavily_available ? 'CONNECTED' : settings?.tavily_configured ? 'OFFLINE' : 'NO KEY'
-  const tavilyStatusColor = settings?.tavily_available ? '#4AFF91' : settings?.tavily_configured ? '#FFB020' : '#666'
+  const tavilyConfigured = !!api.getLocalTavilyKey()
+  const tavilyStatus = tavilyResult?.available ? 'CONNECTED' : tavilyConfigured ? 'OFFLINE' : 'NO KEY'
+  const tavilyStatusColor = tavilyResult?.available ? '#4AFF91' : tavilyConfigured ? '#FFB020' : '#666'
+  const dsConfigured = !!api.getLocalDeepseekKey() || !!dsKey
 
   // ─── Render ──────────────────────────────────────────────
   return (
@@ -312,8 +296,8 @@ export default function SettingsPage() {
 
       {/* ===== Section 1: DeepSeek ===== */}
       <Section icon="&#x1F916;" title="DeepSeek API Configuration"
-        badge={settings?.deepseek_configured ? 'ACTIVE' : undefined}
-        defaultOpen={!settings?.deepseek_configured}
+        badge={dsConfigured ? 'ACTIVE' : undefined}
+        defaultOpen={!dsConfigured}
       >
         <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
           API Key

@@ -73,11 +73,7 @@ class TavilySearchEngine:
         if not _TAVILY_AVAILABLE:
             _CONNECTIVITY_DETAIL = "Package not installed"
             return False
-        key = self._api_key
-        if not key:
-            from ..config import get_tavily_api_key
-            key = get_tavily_api_key()
-        if not key:
+        if not self._api_key:
             _CONNECTIVITY_DETAIL = "API key not configured"
             return False
         if _CONNECTIVITY_OK is None:
@@ -86,11 +82,7 @@ class TavilySearchEngine:
 
     def _get_client(self):
         if self._client is None:
-            key = self._api_key
-            if not key:
-                from ..config import get_tavily_api_key
-                key = get_tavily_api_key()
-            self._client = _TavilyClient(api_key=key)
+            self._client = _TavilyClient(api_key=self._api_key)
         return self._client
 
     @staticmethod

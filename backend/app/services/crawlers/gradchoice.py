@@ -24,7 +24,7 @@ class GradChoiceScraper:
     # SPA 空壳判断阈值（小于此值的 HTML 响应视为 JS 渲染框架）
     SPA_SHELL_THRESHOLD = 5000
 
-    def __init__(self):
+    def __init__(self, access_token: str = ""):
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -35,7 +35,7 @@ class GradChoiceScraper:
             "Referer": self.BASE_URL,
         })
         self._auth_mode = "none"
-        auth_value = get_platform_cookie("gradchoice")
+        auth_value = access_token or get_platform_cookie("gradchoice")
         if auth_value:
             auth_value = auth_value.strip()
             jwt_token = self._extract_raw_jwt(auth_value)

@@ -66,18 +66,18 @@ app = FastAPI(
 # CORS：允许前端跨域访问
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://49.232.102.236"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # 注册路由
-app.include_router(search.router, prefix="/api", tags=["搜索"])
-app.include_router(analysis.router, prefix="/api", tags=["分析"])
-app.include_router(settings.router, prefix="/api", tags=["设置"])
-app.include_router(history.router, prefix="/api", tags=["历史"])
-app.include_router(stats.router, prefix="/api", tags=["统计"])
+app.include_router(search.router, prefix="/advisor/api", tags=["搜索"])
+app.include_router(analysis.router, prefix="/advisor/api", tags=["分析"])
+app.include_router(settings.router, prefix="/advisor/api", tags=["设置"])
+app.include_router(history.router, prefix="/advisor/api", tags=["历史"])
+app.include_router(stats.router, prefix="/advisor/api", tags=["统计"])
 
 
 @app.get("/")

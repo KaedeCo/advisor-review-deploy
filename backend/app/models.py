@@ -15,6 +15,10 @@ class SearchRequest(BaseModel):
         default_factory=list,
         description="指定的平台列表，空列表表示使用全部已启用平台",
     )
+    # 部署版：API Key/Cookie 由前端传入
+    deepseek_key: str = Field(default="", description="DeepSeek API Key（由前端 localStorage 提供）")
+    tavily_key: str = Field(default="", description="Tavily API Key（由前端 localStorage 提供）")
+    cookies: dict = Field(default_factory=dict, description="平台 Cookies，如 {gradchoice: '...', letpub: '...'}")
 
 
 class ReviewItem(BaseModel):
@@ -61,6 +65,7 @@ class SentimentResult(BaseModel):
 class DeepSeekAnalysisRequest(BaseModel):
     """DeepSeek 分析请求"""
     reviews_text: str = Field(..., description="待分析的评论文本汇总")
+    deepseek_key: str = Field(default="", description="DeepSeek API Key（由前端 localStorage 提供）")
 
 
 class SentimentAnalysisRequest(BaseModel):
@@ -70,6 +75,7 @@ class SentimentAnalysisRequest(BaseModel):
     university: str = ""
     department: str = ""
     review_count: int = 0
+    deepseek_key: str = Field(default="", description="DeepSeek API Key（由前端 localStorage 提供）")
 
 
 class DeepSeekAnalysisResponse(BaseModel):
@@ -142,6 +148,7 @@ class SixDimensionRequest(BaseModel):
     university: str = Field(default="", description="院校")
     department: str = Field(default="", description="院系")
     review_count: int = Field(default=0, description="评价数量")
+    deepseek_key: str = Field(default="", description="DeepSeek API Key（由前端 localStorage 提供）")
 
 
 class SixDimensionResponse(BaseModel):
@@ -158,6 +165,7 @@ class AdvisorProfileRequest(BaseModel):
     advisor_name: str = ""
     university: str = ""
     department: str = ""
+    deepseek_key: str = Field(default="", description="DeepSeek API Key（由前端 localStorage 提供）")
 
 
 class AdvisorProfile(BaseModel):

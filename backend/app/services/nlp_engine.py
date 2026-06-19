@@ -54,12 +54,13 @@ def analyze_sentiment(text: str) -> SentimentResult:
     )
 
 
-async def deepseek_sentiment(text: str) -> SentimentResult:
+async def deepseek_sentiment(text: str, api_key: str = "") -> SentimentResult:
     """
     使用 DeepSeek 对每条评论逐一进行情感分类
     一次 API 调用批量处理，返回与 SnowNLP 兼容的 SentimentResult
     """
-    api_key = get_deepseek_api_key()
+    if not api_key:
+        api_key = get_deepseek_api_key()
     if not api_key:
         raise ValueError("DeepSeek API Key 未配置，请先在设置页面添加")
 
@@ -146,12 +147,13 @@ async def deepseek_sentiment(text: str) -> SentimentResult:
         )
 
 
-async def deepseek_analyze(text: str) -> DeepSeekAnalysisResponse:
+async def deepseek_analyze(text: str, api_key: str = "") -> DeepSeekAnalysisResponse:
     """
     使用 DeepSeek API 对评价进行深度分析
     返回：摘要、优点、缺点、风险标记、综合评分
     """
-    api_key = get_deepseek_api_key()
+    if not api_key:
+        api_key = get_deepseek_api_key()
     if not api_key:
         raise ValueError("DeepSeek API Key 未配置，请先在设置页面添加")
 
@@ -255,9 +257,10 @@ def split_reviews(text: str) -> list[str]:
     return results if results else [text]
 
 
-async def generate_advisor_profile(req: AdvisorProfileRequest) -> AdvisorProfile:
+async def generate_advisor_profile(req: AdvisorProfileRequest, api_key: str = "") -> AdvisorProfile:
     """使用 DeepSeek 生成导师画像"""
-    api_key = get_deepseek_api_key()
+    if not api_key:
+        api_key = get_deepseek_api_key()
     if not api_key:
         raise ValueError("DeepSeek API Key 未配置")
 
